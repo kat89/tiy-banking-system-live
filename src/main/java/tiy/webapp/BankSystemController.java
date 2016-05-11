@@ -19,6 +19,7 @@ public class BankSystemController {
     @RequestMapping(path = "/", method = RequestMethod.GET)
     public String getHome(HttpSession session, Model model) {
         setCommonAttributes(session, model);
+        model.addAttribute("myErrorMessage", "This is an error message fom the controller");
         model.addAttribute("bankList", Bank.retrieveAllBanks());
 
         return "home";
@@ -27,11 +28,29 @@ public class BankSystemController {
     @RequestMapping(path = "/customerList", method = RequestMethod.GET)
     public String getCustomerList(HttpSession session, Model model, String bankID) {
         setCommonAttributes(session, model);
-        Bank bank = Bank.retrieve(bankID);
-        model.addAttribute("bank", bank);
-        System.out.println("There are " + bank.getBankCustomers().size() + " customers in the current bank");
-        model.addAttribute("customerList", bank.getBankCustomers().values());
-        return "customerList";
+        if (bankID == null || bankID.isEmpty()) {
+            model.addAttribute("myCustomerListErrorMessage", "Bank ID Required");
+            model.addAttribute("bank", new Bank());
+            model.addAttribute("customerList", null);
+        } else if (session.getAttribute("createCustomerError") != null) {
+            model.addAttribute("myCustomerListErrorMessage",
+                    session.getAttribute("createCustomerError"));
+            model.addAttribute("bank", new Bank());
+            model.addAttribute("customerList", null);
+            session.removeAttribute("createCustomerError");
+
+            Bank bank = Bank.retrieve(bankID);
+            model.addAttribute("bank", bank);
+            System.out.println("There are " + bank.getBankCustomers().size() + " customers in the current bank");
+            model.addAttribute("customerList", bank.getBankCustomers().values());
+        }   else {
+            Bank bank = Bank.retrieve(bankID);
+
+            model.addAttribute("bank", bank);
+            System.out.println("There are " + bank.getBankCustomers().size() + " customers in the current bank");
+            model.addAttribute("customerList", bank.getBankCustomers().values());
+        }
+            return "customerList";
     }
 
     @RequestMapping(path = "/accountList", method = RequestMethod.GET)
@@ -47,6 +66,12 @@ public class BankSystemController {
 
     @RequestMapping(path = "/accountDetails", method = RequestMethod.GET)
     public String getAccountDetails(HttpSession session, Model model, String bankID, String customerEmailAddress, String accountID) {
+
+        if (session.getAttribute("moneyError") != null) {
+            model.addAttribute("myAccountDetailsErrorList",
+                    session.getAttribute("moneyError"));
+            session.removeAttribute("moneyError");
+        }
         setCommonAttributes(session, model);
 
         Bank bank = Bank.retrieve(bankID);
@@ -87,6 +112,10 @@ public class BankSystemController {
     public String createCustomer(HttpSession session, Model model, String bankID, String firstName, String lastName,
                                 String emailAddress) {
         System.out.println("createCustomer()");
+        if ((firstName == null || firstName.isEmpty() || lastName == null || lastName.isEmpty() || emailAddress == null || emailAddress.isEmpty())) {
+        session.setAttribute("createCustomerError", "Please provide input for all fields");
+
+        } else {
         setCommonAttributes(session, model);
         Bank bank = Bank.retrieve(bankID);
 
@@ -94,7 +123,7 @@ public class BankSystemController {
         bank.addCustomer(customer);
 
         bank.save();
-
+        }
         return "redirect:/customerList?bankID=" + bankID;
     }
 
@@ -103,15 +132,18 @@ public class BankSystemController {
     public String deposit(HttpSession session, Model model, String bankID, String accountID, String emailAddress,
                                  double amountToDeposit) {
         System.out.println("deposit()");
-        setCommonAttributes(session, model);
-        Bank bank = Bank.retrieve(bankID);
+        if (amountToDeposit <= 0) {
+            session.setAttribute("moneyError", "Please deposit an amount above 0.00");
+        } else {
+            setCommonAttributes(session, model);
+            Bank bank = Bank.retrieve(bankID);
+            Customer customer = bank.getBankCustomers().get(emailAddress);
+            BankAccount account = customer.getBankAccountByID(accountID);
 
-        Customer customer = bank.getBankCustomers().get(emailAddress);
-        BankAccount account = customer.getBankAccountByID(accountID);
+            account.deposit(amountToDeposit);
 
-        account.deposit(amountToDeposit);
-
-        bank.save();
+            bank.save();
+        }
 
         return "redirect:/accountDetails?bankID=" + bankID +
                 "&customerEmailAddress=" + emailAddress +

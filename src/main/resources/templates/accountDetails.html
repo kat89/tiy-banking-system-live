@@ -13,7 +13,12 @@
 
 <h3>{{bankAccount.accountID}} has a balance of ${{bankAccount.accountBalance}}</h3>
 
+{{#myAccountDetailsErrorList}}
+<h1>{{myAccountDetailsErrorList}</h1>
+{{/myAccountDetailsErrorList}}
+
 <h3>Enter amount to deposit</h3>
+
 <form action="/deposit" method="post">
     <input type="text" name="bankID" value="{{bank.bankID}}" readonly/>
     <input type="text" name="accountID" value="{{bankAccount.accountID}}" readonly/>
